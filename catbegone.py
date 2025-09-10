@@ -1,25 +1,26 @@
 from ai_camera import IMX500Detector
 from datetime import datetime, timedelta
+from picamera2 import Preview
 import RPi.GPIO as GPIO
 import time
 import pygame
 import os
 import random
 
-motionActivatedWindow = 30 # seconds
+motionActivatedWindow = 60 # seconds
 cameraFramerate = 30 # fps
 confidenceMin = 0.4 # % confidence
-pirPin = 8 # gpio pin for pir Sensor
-alertsFolder = "/home/pi/catbegone/alerts"
-alertsVolume = 0.2
+pirPin = 13 # gpio pin for pir Sensor
+alertsFolder = "/home/tmaddox/catbegone/alerts"
+alertsVolume = 0.8
 timeoutAfterAlert = 2 # seconds - time allowed for a cat to run away
 
 lastCatAlert = datetime.now()
 camera = IMX500Detector()
 
+GPIO.cleanup()
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(pirPin, GPIO.IN)
-time.sleep(2)
 
 pygame.mixer.init()
 pygame.mixer.music.set_volume(alertsVolume) 
@@ -62,7 +63,11 @@ def startCatDetection():
     startTime = datetime.now()
     endTime = startTime + timedelta(seconds=motionActivatedWindow)
 
-    camera.start()
+    print(f"lastcatalert: {lastCatAlert}")
+
+    camera.start(Preview.NULL)
+
+    print(f"lastcatalert: {lastCatAlert}")
     
     while datetime.now() < endTime:
         # Get the latest detections
@@ -75,6 +80,8 @@ def startCatDetection():
         for detection in detections:
             label = labels[int(detection.category)]
             confidence = detection.conf
+
+            print(f"object identified {label}")
             
             # Example: Print when a person is detected with high confidence
             if label == "cat" and confidence > confidenceMin:
@@ -87,11 +94,14 @@ def startCatDetection():
         # Small delay to prevent overwhelming the system
         time.sleep(fpsDelay)
 
-    if lastCatAlert > startTime: time.sleep(timeoutAfterAlert)
+    print(f"lastcatalert: {lastCatAlert}")
+    if (lastCatAlert > startTime): time.sleep(timeoutAfterAlert)
     return lastCatAlert > startTime
 
 # Main loop
+print('Now waiting for motion')
 while True:
     if GPIO.input(pirPin) == True:
-        print('Motion detected!')
+        print(f'Motion detected! {datetime.now()}')
         startCatDetection()
+    time.sleep(0.5)
