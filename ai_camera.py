@@ -38,6 +38,9 @@ class IMX500Detector:
         
     def start(self, show_preview=True):
         """Start the detector"""
+        self.last_detections = []
+        self.last_results = None
+
         config = self.picam2.create_preview_configuration(
             controls={"FrameRate": self.intrinsics.inference_rate}, 
             buffer_count=12
@@ -50,11 +53,17 @@ class IMX500Detector:
             self.imx500.set_auto_aspect_ratio()
             
         self.picam2.pre_callback = self._draw_detections
-        
+    
+    def clear_memory(self):
+        """Ensure there's no previous memory of detections"""
+        self.last_detections = []
+        self.last_results = None
+
     def stop(self):
         """Stop the detector"""
         self.picam2.stop()
-        
+        self.clear_memory()
+
     def get_detections(self):
         """Get the latest detections"""
         self.last_results = self._parse_detections(self.picam2.capture_metadata())

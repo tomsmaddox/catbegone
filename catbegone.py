@@ -7,7 +7,7 @@ import pygame
 import os
 import random
 
-motionActivatedWindow = 60 # seconds
+motionActivatedWindow = 30 # seconds
 cameraFramerate = 30 # fps
 confidenceMin = 0.4 # % confidence
 pirPin = 13 # gpio pin for pir Sensor
@@ -15,7 +15,7 @@ alertsFolder = "/home/tmaddox/catbegone/alerts"
 alertsVolume = 0.8
 timeoutAfterAlert = 2 # seconds - time allowed for a cat to run away
 
-lastCatAlert = datetime.now()
+lastCatDetect = datetime.now()
 camera = IMX500Detector()
 
 GPIO.cleanup()
@@ -24,7 +24,6 @@ GPIO.setup(pirPin, GPIO.IN)
 
 pygame.mixer.init()
 pygame.mixer.music.set_volume(alertsVolume) 
-
 
 def handleCatProblem():
     """Play a random MP3 file from the alerts folder at full volume."""
@@ -59,17 +58,18 @@ def handleCatProblem():
 
 
 def startCatDetection():
-    fpsDelay = 1/cameraFramerate
+    #fpsDelay = 1/cameraFramerate
+    fpsDelay = 1/5
+    global lastCatDetect
     startTime = datetime.now()
     endTime = startTime + timedelta(seconds=motionActivatedWindow)
 
-    print(f"lastcatalert: {lastCatAlert}")
+    camera.start(show_preview=False)
 
-    camera.start(Preview.NULL)
+    while datetime.now() < endTime and lastCatDetect < startTime:
+        # Small delay to prevent overwhelming the system
+        time.sleep(fpsDelay)
 
-    print(f"lastcatalert: {lastCatAlert}")
-    
-    while datetime.now() < endTime:
         # Get the latest detections
         detections = camera.get_detections()
     
@@ -81,22 +81,22 @@ def startCatDetection():
             label = labels[int(detection.category)]
             confidence = detection.conf
 
-            print(f"object identified {label}")
+            print(f"object identified: {label}")
             
             # Example: Print when a person is detected with high confidence
             if label == "cat" and confidence > confidenceMin:
                 print(f"Cat detected with {confidence:.2f} confidence!")
-                print(f"Let's scare that fucker!")
-                handleCatProblem()
-                lastCatAlert = datetime.now()
+                lastCatDetect = datetime.now()
                 break
         
-        # Small delay to prevent overwhelming the system
-        time.sleep(fpsDelay)
+    camera.stop()
 
-    print(f"lastcatalert: {lastCatAlert}")
-    if (lastCatAlert > startTime): time.sleep(timeoutAfterAlert)
-    return lastCatAlert > startTime
+    if (lastCatDetect > startTime):
+        print(f"Let's scare that fucker!")
+        handleCatProblem()
+        time.sleep(timeoutAfterAlert)
+        return True
+    return False
 
 # Main loop
 print('Now waiting for motion')
@@ -104,4 +104,4 @@ while True:
     if GPIO.input(pirPin) == True:
         print(f'Motion detected! {datetime.now()}')
         startCatDetection()
-    time.sleep(0.5)
+    time.sleep(1)
