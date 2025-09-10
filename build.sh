@@ -8,7 +8,16 @@ echo "Setting up Cat Deterrent service..."
 
 sudo apt update && sudo apt full-upgrade -y
 sudo apt install -y imx500-all python3-opencv python3-munkres
+sudo apt install vim git
 
+# Install and set up i2s amp
+sudo apt install python3-venv
+python -m venv env --system-site-packages
+source env/bin/activate
+sudo apt install -y wget
+pip3 install adafruit-python-shell
+wget https://github.com/adafruit/Raspberry-Pi-Installer-Scripts/raw/main/i2samp.py
+sudo -E env PATH=$PATH python3 i2samp.py
 
 # Get the current directory (where cat_deterrent.py should be located)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
