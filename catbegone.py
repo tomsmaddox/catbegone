@@ -1,4 +1,5 @@
-from ai_camera import IMX500Detector
+#!/usr/bin/python3
+
 from datetime import datetime, timedelta
 import RPi.GPIO as GPIO
 import time
@@ -15,13 +16,16 @@ from picamera2 import CompletedRequest, Picamera2
 from picamera2.devices import IMX500
 from picamera2.devices.imx500 import NetworkIntrinsics
 
-motionActivatedWindow = 20 # seconds
+motionActivatedWindow = 30 # seconds
 cameraFramerate = 30 # fps
 confidenceMin = 0.4 # % confidence
 pirPin = 13 # gpio pin for pir Sensor
 alertsFolder = "/home/tmaddox/catbegone/alerts"
 alertsVolume = 0.8
 timeoutAfterAlert = 2 # seconds - time allowed for a cat to run away
+
+#Picamera2.set_logging(Picamera2.DEBUG)
+#os.environ["LIBCAMERA_LOG_LEVELS"] = "DEBUG"
 
 imx500 = None
 picam2 = None
