@@ -102,6 +102,50 @@ def parseClassificationResults(request: CompletedRequest) -> List[Detection]:
 
     return last_detections
 
+def startDetection(intrinsics):
+    startTime = datetime.now()
+    endTime = startTime + timedelta(seconds=motionActivatedWindow)
+
+    picam2 = Picamera2(imx500.camera_num)
+    config = picam2.create_preview_configuration(controls={"FrameRate": intrinsics.inference_rate}, buffer_count=12)
+    imx500.show_network_fw_progress_bar()
+
+    picam2.start(config, show_preview=False)
+    time.sleep(1)
+
+    if intrinsics.preserve_aspect_ratio:
+        imx500.set_auto_aspect_ratio()
+    # Register the callback to parse and draw classification results
+    picam2.pre_callback = parseClassificationResults
+
+
+    while datetime.now() < endTime and lastCatAlert < startTime:
+        # Get the latest detections
+        detections = getDetections()
+
+        # Get the labels for reference
+        labels = getLabels()
+
+        # Process each detection
+        for detection in detections:
+            label = labels[int(detection.category)]
+            confidence = detection.conf
+
+            print(f"object identified {label}")
+
+            # Alert when a cat is detected with high confidence
+            if label == "cat":
+                print(f"Cat detected with {confidence:.2f} confidence!")
+                print(f"Let's scare that fucker!")
+                handleCatProblem()
+                lastCatAlert = datetime.now()
+                break
+
+        time.sleep(0.5)
+    
+    print(f'Ending motion detection, returning to PIR sensor')
+    picam2.stop()
+
 def getArgs():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
@@ -155,50 +199,11 @@ if __name__ == "__main__":
     pygame.mixer.init()
     pygame.mixer.music.set_volume(alertsVolume)
 
-    picam2 = Picamera2(imx500.camera_num)
-    config = picam2.create_preview_configuration(controls={"FrameRate": intrinsics.inference_rate}, buffer_count=12)
-    imx500.show_network_fw_progress_bar()
-
     print('Now waiting for motion')
     while True:
         if GPIO.input(pirPin) == True:
             print(f'Motion detected! {datetime.now()}')
             
-            startTime = datetime.now()
-            endTime = startTime + timedelta(seconds=motionActivatedWindow)
-
-            picam2.start(config, show_preview=False)
-            if intrinsics.preserve_aspect_ratio:
-                imx500.set_auto_aspect_ratio()
-            # Register the callback to parse and draw classification results
-            picam2.pre_callback = parseClassificationResults
-
-
-            while datetime.now() < endTime and lastCatAlert < startTime:
-                # Get the latest detections
-                detections = getDetections()
-
-                # Get the labels for reference
-                labels = getLabels()
-
-                # Process each detection
-                for detection in detections:
-                    label = labels[int(detection.category)]
-                    confidence = detection.conf
-
-                    print(f"object identified {label}")
-
-                    # Alert when a cat is detected with high confidence
-                    if label == "cat":
-                        print(f"Cat detected with {confidence:.2f} confidence!")
-                        print(f"Let's scare that fucker!")
-                        handleCatProblem()
-                        lastCatAlert = datetime.now()
-                        break
-
-                time.sleep(0.5)
-            
-            print(f'Ending motion detection, returning to PIR sensor')
-            picam2.stop()
+            startDetection(intrinsics)
 
         time.sleep(0.5)
