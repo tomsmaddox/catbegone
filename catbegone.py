@@ -21,7 +21,7 @@ cameraFramerate = 30 # fps
 confidenceMin = 0.4 # % confidence
 pirPin = 13 # gpio pin for pir Sensor
 alertsFolder = "/home/tmaddox/catbegone/alerts"
-alertsVolume = 0.8
+alertsVolume = 1
 timeoutAfterAlert = 2 # seconds - time allowed for a cat to run away
 
 #Picamera2.set_logging(Picamera2.DEBUG)
@@ -103,48 +103,49 @@ def parseClassificationResults(request: CompletedRequest) -> List[Detection]:
     return last_detections
 
 def startDetection(intrinsics):
+    global lastCatAlert
     startTime = datetime.now()
     endTime = startTime + timedelta(seconds=motionActivatedWindow)
 
-    picam2 = Picamera2(imx500.camera_num)
-    config = picam2.create_preview_configuration(controls={"FrameRate": intrinsics.inference_rate}, buffer_count=12)
-    imx500.show_network_fw_progress_bar()
+    with Picamera2(imx500.camera_num) as picam2:
+        config = picam2.create_preview_configuration(controls={"FrameRate": intrinsics.inference_rate}, buffer_count=12)
+        imx500.show_network_fw_progress_bar()
 
-    picam2.start(config, show_preview=False)
-    time.sleep(1)
+        picam2.start(config, show_preview=False)
+        time.sleep(1)
 
-    if intrinsics.preserve_aspect_ratio:
-        imx500.set_auto_aspect_ratio()
-    # Register the callback to parse and draw classification results
-    picam2.pre_callback = parseClassificationResults
+        if intrinsics.preserve_aspect_ratio:
+            imx500.set_auto_aspect_ratio()
+        # Register the callback to parse and draw classification results
+        picam2.pre_callback = parseClassificationResults
 
 
-    while datetime.now() < endTime and lastCatAlert < startTime:
-        # Get the latest detections
-        detections = getDetections()
+        while datetime.now() < endTime and lastCatAlert < startTime:
+            # Get the latest detections
+            detections = getDetections()
 
-        # Get the labels for reference
-        labels = getLabels()
+            # Get the labels for reference
+            labels = getLabels()
 
-        # Process each detection
-        for detection in detections:
-            label = labels[int(detection.category)]
-            confidence = detection.conf
+            # Process each detection
+            for detection in detections:
+                label = labels[int(detection.category)]
+                confidence = detection.conf
 
-            print(f"object identified {label}")
+                print(f"object identified {label}")
 
-            # Alert when a cat is detected with high confidence
-            if label == "cat":
-                print(f"Cat detected with {confidence:.2f} confidence!")
-                print(f"Let's scare that fucker!")
-                handleCatProblem()
-                lastCatAlert = datetime.now()
-                break
+                # Alert when a cat is detected with high confidence
+                if label == "cat":
+                    print(f"Cat detected with {confidence:.2f} confidence!")
+                    print(f"Let's scare that fucker!")
+                    handleCatProblem()
+                    lastCatAlert = datetime.now()
+                    break
 
-        time.sleep(0.5)
+            time.sleep(0.5)
     
-    print(f'Ending motion detection, returning to PIR sensor')
-    picam2.stop()
+        print(f'Ending motion detection, returning to PIR sensor')
+        picam2.stop()
 
 def getArgs():
     """Parse command line arguments."""
